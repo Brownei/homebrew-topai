@@ -28,17 +28,37 @@ var (
 	chatLabelStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("10")).
 			Bold(true)
+
+	// Stats bar styles
+	statsBarStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("236")).
+			Foreground(lipgloss.Color("255")).
+			Padding(0, 1).
+			MarginBottom(1)
+
+	cpuStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("208")).
+			Bold(true)
+
+	memStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("39")).
+			Bold(true)
+
+	uptimeStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("190")).
+			Bold(true)
 )
 
 type Model struct {
-	Processes  []ProcessInfo
-	Table      table.Model
-	TextInput  textinput.Model
-	SortBy     string
-	quitting   bool
-	width      int
-	height     int
-	chatActive bool
+	Processes   []ProcessInfo
+	SystemStats SystemStats
+	Table       table.Model
+	TextInput   textinput.Model
+	SortBy      string
+	quitting    bool
+	width       int
+	height      int
+	chatActive  bool
 }
 
 type TickMsg time.Time
@@ -64,9 +84,23 @@ func NewModel(procs []ProcessInfo) Model {
 		{Title: "Memory%", Width: 12},
 	}
 
+	// Create initial rows from processes
+	var rows []table.Row
+	for _, p := range procs {
+		rows = append(rows, table.Row{
+			fmt.Sprintf("%d", p.PID),
+			utils.Truncate(p.Name, 25),
+			fmt.Sprintf("%.2f", p.CPU),
+			fmt.Sprintf("%.2f", p.Memory),
+		})
+	}
+
 	t := table.New(
 		table.WithColumns(columns),
+		table.WithRows(rows),
 		table.WithHeight(20),
+		// Enable keyboard navigation
+		table.WithFocused(true),
 	)
 
 	// Style the table
@@ -85,12 +119,16 @@ func NewModel(procs []ProcessInfo) Model {
 	ti.CharLimit = 156
 	ti.Width = 60
 
+	// Get initial system stats
+	stats, _ := getSystemStats()
+
 	return Model{
-		Processes:  procs,
-		Table:      t,
-		TextInput:  ti,
-		SortBy:     "cpu",
-		chatActive: false,
+		Processes:   procs,
+		SystemStats: stats,
+		Table:       t,
+		TextInput:   ti,
+		SortBy:      "cpu",
+		chatActive:  false,
 	}
 }
 
@@ -103,7 +141,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.Table.SetHeight(msg.Height - 8)
+		m.Table.SetHeight(msg.Height - 10)
 		m.TextInput.Width = msg.Width - 20
 
 	case tea.KeyMsg:
@@ -137,21 +175,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 
-		case "up", "k":
-			m.Table, _ = m.Table.Update(msg)
-
-		case "down", "j":
-			m.Table, _ = m.Table.Update(msg)
-
 		case "c":
 			m.SortBy = "cpu"
 			m.SortProcesses()
 			m.updateTableRows()
+			return m, nil
 
 		case "m":
 			m.SortBy = "memory"
 			m.SortProcesses()
 			m.updateTableRows()
+			return m, nil
 
 		case "K":
 			// Kill selected process
@@ -167,12 +201,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.updateTableRows()
 				}
 			}
+			return m, nil
 
-		case "t", "enter":
-			// Activate chat mode
+		case "t":
+			// Activate chat mode (only 't', not Enter to avoid conflict with table selection)
 			m.chatActive = true
 			m.TextInput.Focus()
 			cmds = append(cmds, textinput.Blink)
+			return m, nil
 		}
 
 	case TickMsg:
@@ -181,6 +217,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err == nil {
 			m.Processes = procs
 			m.SortProcesses()
+
+			stats, _ := getSystemStats()
+			m.SystemStats = stats
+
 			m.updateTableRows()
 		}
 		cmds = append(cmds, tickCmd())
@@ -207,6 +247,30 @@ func (m *Model) updateTableRows() {
 	m.Table.SetRows(rows)
 }
 
+// formatUptime converts seconds to human-readable format
+func formatUptime(seconds uint64) string {
+	days := seconds / 86400
+	hours := (seconds % 86400) / 3600
+	minutes := (seconds % 3600) / 60
+
+	if days > 0 {
+		return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
+	} else if hours > 0 {
+		return fmt.Sprintf("%dh %dm", hours, minutes)
+	}
+	return fmt.Sprintf("%dm", minutes)
+}
+
+// renderStatsBar creates the system stats bar
+func (m Model) renderStatsBar() string {
+	cpu := cpuStyle.Render(fmt.Sprintf("CPU: %.1f%%", m.SystemStats.CPUPercent))
+	mem := memStyle.Render(fmt.Sprintf("MEM: %.1f%%", m.SystemStats.MemPercent))
+	uptime := uptimeStyle.Render(fmt.Sprintf("UP: %s", formatUptime(m.SystemStats.Uptime)))
+
+	stats := fmt.Sprintf(" %s  │  %s  │  %s ", cpu, mem, uptime)
+	return statsBarStyle.Render(stats)
+}
+
 // View renders the UI
 func (m Model) View() string {
 	if m.quitting {
@@ -214,6 +278,9 @@ func (m Model) View() string {
 	}
 
 	var output string
+
+	// System Stats Bar
+	output += m.renderStatsBar() + "\n"
 
 	// Header
 	output += headerStyle.Render("🖥️  gotop - Go Process Monitor") + "\n"
