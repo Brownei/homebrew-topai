@@ -1,0 +1,25 @@
+name: topai
+version: '1.0.0'
+summary: AI-powered process monitor
+description: |
+  topai identifies if processes are stuck or just busy using AI analysis.
+  
+grade: stable
+confinement: strict
+
+apps:
+  topai:
+    command: bin/topai
+    plugs:
+      - process-control
+      - hardware-observe
+      - system-monitor
+      - home
+
+parts:
+  topai:
+    plugin: go
+    source: https://github.com/Brownei/topai.git
+    source-type: git
+    build-snaps:
+      - go

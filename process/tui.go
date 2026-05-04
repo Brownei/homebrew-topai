@@ -1,11 +1,11 @@
 package process
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"time"
 
-	"github.com/Brownei/aitop/utils"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -49,16 +49,41 @@ var (
 			Bold(true)
 )
 
+// AIProvider is an interface for different LLM providers
+type AIProvider interface {
+	Name() string
+	Analyze(ctx context.Context, process ProcessInfo) (string, error)
+	ValidateAPIKey(ctx context.Context) error
+}
+
+type ProviderConfig struct {
+	Provider string // "anthropic", "openai", "gemini"
+	APIKey   string
+}
+
+type AIAnalysisMsg struct {
+	PID      int32
+	Analysis string
+}
+
+type ThrottlePromptMsg struct {
+	PID int32
+}
+
 type Model struct {
-	Processes   []ProcessInfo
-	SystemStats SystemStats
-	Table       table.Model
-	TextInput   textinput.Model
-	SortBy      string
-	quitting    bool
-	width       int
-	height      int
-	chatActive  bool
+	Processes          []ProcessInfo
+	SystemStats        SystemStats
+	Table              table.Model
+	TextInput          textinput.Model
+	SortBy             string
+	quitting           bool
+	width              int
+	height             int
+	analysisInProgress bool
+	selectedProcessPID int32
+	provider           AIProvider
+	throttlePrompt     *ThrottlePromptMsg // nil or set to show prompt
+	chatActive         bool
 }
 
 type TickMsg time.Time
@@ -75,7 +100,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 // NewModel creates a new TUI model with table and chatbox
-func NewModel(procs []ProcessInfo) Model {
+func NewModel(procs []ProcessInfo, provider AIProvider) Model {
 	// Setup table columns
 	columns := []table.Column{
 		{Title: "PID", Width: 10},
@@ -89,7 +114,7 @@ func NewModel(procs []ProcessInfo) Model {
 	for _, p := range procs {
 		rows = append(rows, table.Row{
 			fmt.Sprintf("%d", p.PID),
-			utils.Truncate(p.Name, 25),
+			truncate(p.Name, 25),
 			fmt.Sprintf("%.2f", p.CPU),
 			fmt.Sprintf("%.2f", p.Memory),
 		})
@@ -129,6 +154,7 @@ func NewModel(procs []ProcessInfo) Model {
 		TextInput:   ti,
 		SortBy:      "cpu",
 		chatActive:  false,
+		provider:    provider,
 	}
 }
 
@@ -221,9 +247,47 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			stats, _ := getSystemStats()
 			m.SystemStats = stats
 
+			for _, p := range m.Processes {
+				if p.isHighCPU() && p.AIAnalysis == "" && !m.analysisInProgress {
+					m.analysisInProgress = true
+					m.selectedProcessPID = p.PID
+
+					return m, func() tea.Msg {
+						ctx := context.Background()
+						analysis, err := analyzeProcessBehavior(ctx, m.provider, p)
+						if err != nil {
+							analysis = "Analysis failed: " + err.Error()
+						}
+						return AIAnalysisMsg{PID: p.PID, Analysis: analysis}
+					}
+				}
+			}
+
 			m.updateTableRows()
 		}
 		cmds = append(cmds, tickCmd())
+
+	case AIAnalysisMsg:
+		// Find the process and update its analysis
+		for i := range m.Processes {
+			if m.Processes[i].PID == msg.PID {
+				m.Processes[i].AIAnalysis = msg.Analysis
+
+				// If it's stuck, show throttle prompt
+				if m.Processes[i].CPU > 50 && len(msg.Analysis) > 0 {
+					m.throttlePrompt = &ThrottlePromptMsg{PID: msg.PID}
+				}
+				break
+			}
+		}
+		m.analysisInProgress = false
+		return m, tickCmd()
+
+	case ThrottlePromptMsg:
+		// User pressed 'y' to throttle
+		killProcess(msg.PID) // or throttleProcess(msg.PID, 10)
+		m.throttlePrompt = nil
+		return m, tickCmd()
 	}
 
 	// Update table
@@ -239,7 +303,7 @@ func (m *Model) updateTableRows() {
 	for _, p := range m.Processes {
 		rows = append(rows, table.Row{
 			fmt.Sprintf("%d", p.PID),
-			utils.Truncate(p.Name, 25),
+			truncate(p.Name, 25),
 			fmt.Sprintf("%.2f", p.CPU),
 			fmt.Sprintf("%.2f", p.Memory),
 		})
@@ -307,4 +371,15 @@ func (m *Model) SortProcesses() {
 		// Default: sort by CPU
 		return m.Processes[i].CPU > m.Processes[j].CPU
 	})
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) > maxLen {
+		return s[:maxLen-1] + "…"
+	}
+	return s
+}
+
+func analyzeProcessBehavior(ctx context.Context, provider AIProvider, p ProcessInfo) (string, error) {
+	return provider.Analyze(ctx, p)
 }
