@@ -22,15 +22,6 @@ archives:
     builds:
       - topai
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-      amd64: x86_64
-      arm64: aarch64
-    format_overrides:
-      - goos: windows
-        format: zip
     files:
       - README.md
       - LICENSE
