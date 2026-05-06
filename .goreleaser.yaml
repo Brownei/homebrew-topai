@@ -22,7 +22,7 @@ brews:
       email: esitibrownson@gmail.com
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
     directory: Formula
-    description: "<UPDATE DESCRIPTION>"
+    description: "Topai is an AI-powered terminal process monitor written in Go that combines real-time system monitoring with intelligent analysis. Watch your CPU and memory usage, then use AI providers like Claude, GPT-5, or Gemini to analyze whether high-resource processes are stuck or legitimately busy, all through a beautiful interactive terminal interface."
     license: "MIT"
     install: |
       bin.install "topai"
@@ -44,9 +44,6 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
-
-release:
-  name_template: 'v{{ .Version }}'
 
 # modelines, feel free to remove those if you don't want/use them:
 # yaml-language-server: $schema=https://goreleaser.com/static/schema-pro.json
