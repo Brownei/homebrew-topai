@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/Brownei/homebrew-topai/compare/v1.0.0...v1.1.0) (2026-05-06)
+
+
+### Features
+
+* go release changes ([c45a1b4](https://github.com/Brownei/homebrew-topai/commit/c45a1b4f33db30052ab819f8685a99c81eb0121d))
+
 # 1.0.0 (2026-05-06)
 
 
