@@ -14,8 +14,9 @@
 
     [
       "@semantic-release/exec",
-      {
-        "publishCmd": "goreleaser release --clean"
+            {
+        "prepareCmd": "echo ${nextRelease.version}",
+        "publishCmd": "goreleaser release --clean --release-notes=<(echo '${nextRelease.notes}')"
       }
     ],
 
