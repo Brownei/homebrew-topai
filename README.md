@@ -2,7 +2,7 @@
 
 AI-powered terminal process monitor built in Go with a beautiful TUI interface.
 
-![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)
+![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)  ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ## Features
 
