@@ -30,7 +30,7 @@ jobs:
           curl -sfL https://goreleaser.com/static/run | bash -s -- --version
 
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v4
+        uses: codfish/semantic-release-action@v5
         with:
           extra_plugins: |
             @semantic-release/git
