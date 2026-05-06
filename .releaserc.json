@@ -54,7 +54,7 @@
     [
       "@semantic-release/exec",
       {
-        "publishCmd": "make release VERSION=${nextRelease.version}"
+        "publishCmd": "goreleaser release --clean"
       }
     ],
     [
