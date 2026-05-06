@@ -5,21 +5,21 @@
 class Topai < Formula
   desc "Topai is an AI-powered terminal process monitor written in Go that combines real-time system monitoring with intelligent analysis. Watch your CPU and memory usage, then use AI providers like Claude, GPT-5, or Gemini to analyze whether high-resource processes are stuck or legitimately busy, all through a beautiful interactive terminal interface."
   homepage ""
-  version "1.0.0"
+  version "1.1.1"
   license "MIT"
 
   on_macos do
     on_intel do
-      url "https://github.com/Brownei/homebrew-topai/releases/download/v1.0.0/homebrew-topai_1.0.0_darwin_amd64.tar.gz"
-      sha256 "d04753e9d9a75ec7b6194f6d9c9f1ddee0294d547d520357e2cd8d68c30c9331"
+      url "https://github.com/Brownei/homebrew-topai/releases/download/v1.1.1/homebrew-topai_1.1.1_darwin_amd64.tar.gz"
+      sha256 "a04503838d8d4ddbe1771215f7d9efcfba6b961966c56779349ac8ce022f749f"
 
       def install
         bin.install "topai"
       end
     end
     on_arm do
-      url "https://github.com/Brownei/homebrew-topai/releases/download/v1.0.0/homebrew-topai_1.0.0_darwin_arm64.tar.gz"
-      sha256 "33146248fa6b922ff2937b707f6b04474782e7543354010701c5ff2e004d592f"
+      url "https://github.com/Brownei/homebrew-topai/releases/download/v1.1.1/homebrew-topai_1.1.1_darwin_arm64.tar.gz"
+      sha256 "ef41e669f7b41d877d0b603c4de257dd5c01a6e2b644cc0aa6cde7286e81a2de"
 
       def install
         bin.install "topai"
@@ -30,8 +30,8 @@ class Topai < Formula
   on_linux do
     on_intel do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/Brownei/homebrew-topai/releases/download/v1.0.0/homebrew-topai_1.0.0_linux_amd64.tar.gz"
-        sha256 "3181d555b1c5efe4f273e873afbd4467e3990ee7339065105809c3efd6e95602"
+        url "https://github.com/Brownei/homebrew-topai/releases/download/v1.1.1/homebrew-topai_1.1.1_linux_amd64.tar.gz"
+        sha256 "eeb688b64afe77873a00beb782698e0e4550dd4b9ae5ff65d11ac794f5b09d5e"
 
         def install
           bin.install "topai"
@@ -40,8 +40,8 @@ class Topai < Formula
     end
     on_arm do
       if !Hardware::CPU.is_64_bit?
-        url "https://github.com/Brownei/homebrew-topai/releases/download/v1.0.0/homebrew-topai_1.0.0_linux_armv6.tar.gz"
-        sha256 "4a985124ece9c778cad153229b904a3ab4f533901a3df195ef8c9dc266434589"
+        url "https://github.com/Brownei/homebrew-topai/releases/download/v1.1.1/homebrew-topai_1.1.1_linux_arm.tar.gz"
+        sha256 "c912fff9e6a3e28b1e6eeac64bc577293bedf63a8f83841da680fb35a713e984"
 
         def install
           bin.install "topai"
@@ -50,8 +50,8 @@ class Topai < Formula
     end
     on_arm do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/Brownei/homebrew-topai/releases/download/v1.0.0/homebrew-topai_1.0.0_linux_arm64.tar.gz"
-        sha256 "929ae4b87c885b2fe1aa830ecf5968511de26f29a8c1fece40d87d35b016a21e"
+        url "https://github.com/Brownei/homebrew-topai/releases/download/v1.1.1/homebrew-topai_1.1.1_linux_arm64.tar.gz"
+        sha256 "5010419e99ef9dd268b18526fc920803b1c63bfb4bb845d5c1d9445f423a698e"
 
         def install
           bin.install "topai"
