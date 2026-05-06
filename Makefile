@@ -1,8 +1,11 @@
 # Makefile
-.PHONY: build build-linux build-macos install clean
+.PHONY: release
 
-VERSION := 1.0.0
-BINARY_NAME := aitop
+release:
+	@echo "Releasing version $(VERSION)"
+	# Update version in your code if needed
+	# Then run GoReleaser
+	goreleaser release --clean
 
 build:
 	go build -o $(BINARY_NAME) .
