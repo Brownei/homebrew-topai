@@ -1,0 +1,53 @@
+# This is an example-real .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+builds:
+- targets: [go_first_class]
+  mod_timestamp: '{{ .CommitTimestamp }}'
+  flags:
+    # trims path
+    - -trimpath
+  ldflags:
+    # use commit date instead of current date as main.date
+    # only needed if you actually use those things in your main package, otherwise can be ignored.
+    - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }}
+brews:
+  - name: topai
+    commit_author:
+      name: Brownei
+      email: esitibrownson@gmail.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    directory: Formula
+    description: "<UPDATE DESCRIPTION>"
+    license: "MIT"
+    install: |
+      bin.install "topai"
+    test: |
+      system "#{bin}/topai --version"
+    # Repository to push the generated files to.
+    repository:
+      owner: Brownei
+      name: homebrew-topai
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+release:
+  name_template: 'v{{ .Version }}'
+
+# modelines, feel free to remove those if you don't want/use them:
+# yaml-language-server: $schema=https://goreleaser.com/static/schema-pro.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
