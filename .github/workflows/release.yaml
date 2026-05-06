@@ -5,17 +5,25 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write  # Needed for creating releases
+
 jobs:
-  main:
+  semantic-release:
     runs-on: ubuntu-latest
-    environment:
-      name: Release
+    environment: Release
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0  # Required for semantic-release to get all commits
+      
       - name: Semantic Release
+        id: semantic
         uses: cycjimmy/semantic-release-action@v4
         with:
           extra_plugins: |
@@ -24,9 +32,29 @@ jobs:
             @semantic-release/changelog
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+  goreleaser:
+    needs: semantic-release
+    if: needs.semantic-release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: v${{ needs.semantic-release.outputs.new_release_version }}
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      
       - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN  }}
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN  }}
-        run: |
-          curl -sL https://git.io/goreleaser | bash
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
