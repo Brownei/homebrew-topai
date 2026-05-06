@@ -3,9 +3,14 @@ package process
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/Brownei/aitop/providers"
+	"github.com/Brownei/aitop/utils"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,14 +25,6 @@ var (
 	selectedStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("229")).
 			Background(lipgloss.Color("57"))
-
-	chatStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			MarginTop(1)
-
-	chatLabelStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("10")).
-			Bold(true)
 
 	// Stats bar styles
 	statsBarStyle = lipgloss.NewStyle().
@@ -47,19 +44,52 @@ var (
 	uptimeStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("190")).
 			Bold(true)
+
+	// Modal styles
+	modalStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("235")).
+			Foreground(lipgloss.Color("255")).
+			Padding(2, 4).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("99")).
+			Width(80)
+
+	modalTitleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("99")).
+			Bold(true).
+			MarginBottom(1).
+			Align(lipgloss.Center)
+
+	userMessageStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("39")).
+				Bold(true).
+				MarginBottom(1)
+
+	responseStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252")).
+			MarginLeft(2).
+			MarginBottom(1)
+
+	loadingStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("208")).
+			Bold(true).
+			MarginBottom(1)
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true).
+			MarginBottom(1)
+
+	hintStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Italic(true).
+			MarginTop(1).
+			Align(lipgloss.Center)
+
+	// Overlay background (dimmed)
+	overlayStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("0"))
 )
-
-// AIProvider is an interface for different LLM providers
-type AIProvider interface {
-	Name() string
-	Analyze(ctx context.Context, process ProcessInfo) (string, error)
-	ValidateAPIKey(ctx context.Context) error
-}
-
-type ProviderConfig struct {
-	Provider string // "anthropic", "openai", "gemini"
-	APIKey   string
-}
 
 type AIAnalysisMsg struct {
 	PID      int32
@@ -68,6 +98,12 @@ type AIAnalysisMsg struct {
 
 type ThrottlePromptMsg struct {
 	PID int32
+}
+
+// Chat response message for async AI calls
+type ChatResponseMsg struct {
+	Response string
+	Error    error
 }
 
 type Model struct {
@@ -81,9 +117,15 @@ type Model struct {
 	height             int
 	analysisInProgress bool
 	selectedProcessPID int32
-	provider           AIProvider
+	provider           providers.AIProvider
 	throttlePrompt     *ThrottlePromptMsg // nil or set to show prompt
-	chatActive         bool
+
+	// Chat state
+	chatActive   bool
+	chatLoading  bool
+	chatResponse string
+	chatError    string
+	lastSentMsg  string
 }
 
 type TickMsg time.Time
@@ -100,7 +142,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 // NewModel creates a new TUI model with table and chatbox
-func NewModel(procs []ProcessInfo, provider AIProvider) Model {
+func NewModel(procs []ProcessInfo, provider providers.AIProvider) Model {
 	// Setup table columns
 	columns := []table.Column{
 		{Title: "PID", Width: 10},
@@ -140,9 +182,9 @@ func NewModel(procs []ProcessInfo, provider AIProvider) Model {
 
 	// Setup text input for chat
 	ti := textinput.New()
-	ti.Placeholder = "Type a message and press Enter to send..."
-	ti.CharLimit = 156
-	ti.Width = 60
+	ti.Placeholder = "Ask me anything about your system..."
+	ti.CharLimit = 500
+	ti.Width = 70
 
 	// Get initial system stats
 	stats, _ := getSystemStats()
@@ -154,12 +196,23 @@ func NewModel(procs []ProcessInfo, provider AIProvider) Model {
 		TextInput:   ti,
 		SortBy:      "cpu",
 		chatActive:  false,
+		chatLoading: false,
 		provider:    provider,
 	}
 }
 
 // Update handles messages
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	ctx := context.Background()
+	configDir, err := os.UserConfigDir()
+	var configPath string
+	if err == nil {
+		configPath = filepath.Join(configDir, "topia", "config.json")
+		os.MkdirAll(filepath.Dir(configPath), 0700)
+	}
+
+	defer ctx.Done()
+
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -168,7 +221,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.Table.SetHeight(msg.Height - 10)
-		m.TextInput.Width = msg.Width - 20
+		// Update modal width based on screen size
+		modalWidth := min(80, msg.Width-4)
+		m.TextInput.Width = modalWidth - 8
+		modalStyle = modalStyle.Width(modalWidth)
 
 	case tea.KeyMsg:
 		// Handle chat mode
@@ -177,21 +233,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc":
 				m.chatActive = false
 				m.TextInput.Blur()
+				m.chatLoading = false
 				return m, nil
 			case "enter":
 				// Send the message
-				msg := m.TextInput.Value()
-				if msg != "" {
-					// Here you would handle the message
-					// For now, just clear the input
+				msgText := m.TextInput.Value()
+				if msgText != "" && !m.chatLoading {
+					m.lastSentMsg = msgText
+					m.chatLoading = true
+					m.chatResponse = ""
+					m.chatError = ""
 					m.TextInput.SetValue("")
-					m.TextInput.Placeholder = fmt.Sprintf("Sent: %s", msg)
+					m.TextInput.Blur()
+
+					// Send async request
+					return m, func() tea.Msg {
+						ctx := context.Background()
+						response, err := m.provider.Analyze(ctx, msgText)
+						return ChatResponseMsg{Response: response, Error: err}
+					}
 				}
 				return m, nil
+			case "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
 			default:
-				var cmd tea.Cmd
-				m.TextInput, cmd = m.TextInput.Update(msg)
-				return m, cmd
+				if !m.chatLoading {
+					var cmd tea.Cmd
+					m.TextInput, cmd = m.TextInput.Update(msg)
+					return m, cmd
+				}
+				return m, nil
 			}
 		}
 
@@ -230,11 +302,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "t":
-			// Activate chat mode (only 't', not Enter to avoid conflict with table selection)
-			m.chatActive = true
-			m.TextInput.Focus()
-			cmds = append(cmds, textinput.Blink)
+			// Toggle chat modal
+			m.chatActive = !m.chatActive
+			if m.chatActive {
+				m.TextInput.Focus()
+				cmds = append(cmds, textinput.Blink)
+			} else {
+				m.TextInput.Blur()
+			}
 			return m, nil
+
+		case "p":
+			// Switch provider
+			m.throttlePrompt = nil
+			newProvider, err := providers.PromptForProvider(configPath)
+			if err == nil {
+				m.provider = newProvider
+				// Clear old analyses
+				for i := range m.Processes {
+					m.Processes[i].AIAnalysis = ""
+				}
+			}
 		}
 
 	case TickMsg:
@@ -288,12 +376,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		killProcess(msg.PID) // or throttleProcess(msg.PID, 10)
 		m.throttlePrompt = nil
 		return m, tickCmd()
+
+	case ChatResponseMsg:
+		m.chatLoading = false
+		if msg.Error != nil {
+			m.chatError = msg.Error.Error()
+			m.chatResponse = ""
+		} else {
+			m.chatResponse = msg.Response
+			m.chatError = ""
+		}
+		// Re-focus input for next message
+		m.TextInput.Focus()
+		cmds = append(cmds, textinput.Blink)
+		return m, nil
 	}
 
-	// Update table
-	var tableCmd tea.Cmd
-	m.Table, tableCmd = m.Table.Update(msg)
-	cmds = append(cmds, tableCmd)
+	// Update table (only when not in chat mode)
+	if !m.chatActive {
+		var tableCmd tea.Cmd
+		m.Table, tableCmd = m.Table.Update(msg)
+		cmds = append(cmds, tableCmd)
+	}
 
 	return m, tea.Batch(cmds...)
 }
@@ -335,6 +439,120 @@ func (m Model) renderStatsBar() string {
 	return statsBarStyle.Render(stats)
 }
 
+// wrapText wraps text to fit within a given width
+func wrapText(text string, width int) string {
+	if width <= 0 {
+		return text
+	}
+
+	var result strings.Builder
+	lines := strings.Split(text, "\n")
+
+	for _, line := range lines {
+		if len(line) <= width {
+			result.WriteString(line)
+			result.WriteString("\n")
+			continue
+		}
+
+		// Word wrap
+		words := strings.Fields(line)
+		currentLine := ""
+		for _, word := range words {
+			if len(currentLine)+len(word)+1 > width {
+				result.WriteString(strings.TrimSpace(currentLine))
+				result.WriteString("\n")
+				currentLine = word + " "
+			} else {
+				currentLine += word + " "
+			}
+		}
+		if currentLine != "" {
+			result.WriteString(strings.TrimSpace(currentLine))
+			result.WriteString("\n")
+		}
+	}
+
+	return strings.TrimSuffix(result.String(), "\n")
+}
+
+// renderChatModal creates the chat modal overlay
+func (m Model) renderChatModal() string {
+	var content strings.Builder
+
+	// Title
+	title := modalTitleStyle.Render("💬 Ask AI")
+	content.WriteString(title + "\n\n")
+
+	// Show user message if sent
+	if m.lastSentMsg != "" {
+		userLabel := userMessageStyle.Render("You:")
+		content.WriteString(userLabel + "\n")
+
+		// Wrap user message
+		wrappedUser := wrapText(m.lastSentMsg, m.TextInput.Width)
+		content.WriteString(responseStyle.Render(wrappedUser) + "\n\n")
+	}
+
+	// Show loading, error, or response
+	if m.chatLoading {
+		loading := loadingStyle.Render("⏳ AI is thinking...")
+		content.WriteString(loading + "\n\n")
+	} else if m.chatError != "" {
+		errMsg := errorStyle.Render("❌ Error: " + m.chatError)
+		content.WriteString(errMsg + "\n\n")
+	} else if m.chatResponse != "" {
+		aiLabel := userMessageStyle.Render("AI:")
+		content.WriteString(aiLabel + "\n")
+
+		// Wrap response to fit modal
+		wrappedResponse := wrapText(m.chatResponse, m.TextInput.Width)
+		content.WriteString(responseStyle.Render(wrappedResponse) + "\n\n")
+	}
+
+	// Separator
+	separator := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Render(strings.Repeat("─", m.TextInput.Width))
+	content.WriteString(separator + "\n\n")
+
+	// Input field (only show when not loading)
+	if !m.chatLoading {
+		content.WriteString(m.TextInput.View() + "\n")
+	}
+
+	// Hint
+	hint := hintStyle.Render("Enter to send • ESC to close • Ctrl+C to quit")
+	content.WriteString(hint)
+
+	// Apply modal styling
+	modalContent := modalStyle.Render(content.String())
+
+	// Center the modal on screen
+	if m.width > 0 && m.height > 0 {
+		modalWidth := lipgloss.Width(modalContent)
+		modalHeight := lipgloss.Height(modalContent)
+
+		// Horizontal centering
+		leftPadding := (m.width - modalWidth) / 2
+		if leftPadding < 0 {
+			leftPadding = 0
+		}
+
+		// Vertical centering
+		topPadding := (m.height - modalHeight) / 2
+		if topPadding < 0 {
+			topPadding = 0
+		}
+
+		return lipgloss.NewStyle().
+			Padding(topPadding, leftPadding).
+			Render(modalContent)
+	}
+
+	return modalContent
+}
+
 // View renders the UI
 func (m Model) View() string {
 	if m.quitting {
@@ -347,18 +565,27 @@ func (m Model) View() string {
 	output += m.renderStatsBar() + "\n"
 
 	// Header
-	output += headerStyle.Render("🖥️  gotop - Go Process Monitor") + "\n"
-	output += fmt.Sprintf("Sort by: %s | [K]ill [c]pu [m]emory | [t]ype message | [q]uit\n\n", m.SortBy)
+	output += headerStyle.Render("🖥️  Topai - Go Process Monitor") + "\n"
+	output += fmt.Sprintf("Sort by: %s | [K]ill [c]pu [m]emory | [t]oggle chat | [q]uit\n\n", m.SortBy)
 
 	// Table
 	output += m.Table.View() + "\n"
 
-	// Chatbox
-	chatLabel := chatLabelStyle.Render("💬 Chat")
+	// Render chat modal as overlay if active
 	if m.chatActive {
-		chatLabel = chatLabelStyle.Render("💬 Chat (ESC to cancel)")
+		modalView := m.renderChatModal()
+
+		// Use lipgloss to overlay modal on main view
+		return lipgloss.Place(
+			m.width,
+			m.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			modalView,
+			lipgloss.WithWhitespaceChars(" "),
+			lipgloss.WithWhitespaceForeground(lipgloss.Color("0")),
+		)
 	}
-	output += chatStyle.Render(chatLabel + "\n" + m.TextInput.View())
 
 	return output
 }
@@ -380,6 +607,8 @@ func truncate(s string, maxLen int) string {
 	return s
 }
 
-func analyzeProcessBehavior(ctx context.Context, provider AIProvider, p ProcessInfo) (string, error) {
-	return provider.Analyze(ctx, p)
+func analyzeProcessBehavior(ctx context.Context, provider providers.AIProvider, p ProcessInfo) (string, error) {
+	prompt := utils.GetGlobalPrompt(p.Name, p.CPU, float64(p.Memory), p.PID)
+
+	return provider.Analyze(ctx, prompt)
 }

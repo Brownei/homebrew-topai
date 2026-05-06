@@ -58,5 +58,5 @@ func (p *ProcessInfo) recordCPU(cpuPercent float64) {
 
 // Check if CPU is abnormally high
 func (p ProcessInfo) isHighCPU() bool {
-	return p.CPU > 20.0 // More than 20%
+	return p.CPU > 9.0 // More than 20%
 }

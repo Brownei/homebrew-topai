@@ -3,8 +3,6 @@ package providers
 import (
 	"context"
 
-	"github.com/Brownei/aitop/process"
-	"github.com/Brownei/aitop/utils"
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 )
@@ -39,11 +37,11 @@ func (a *AnthropicProvider) ValidateAPIKey(ctx context.Context) error {
 	return err
 }
 
-func (a *AnthropicProvider) Analyze(ctx context.Context, p process.ProcessInfo) (string, error) {
+func (a *AnthropicProvider) Analyze(ctx context.Context, content string) (string, error) {
 	message, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model: anthropic.ModelClaudeHaiku4_5,
 		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(utils.GetGlobalPrompt(p))),
+			anthropic.NewUserMessage(anthropic.NewTextBlock(content)),
 		},
 		MaxTokens: 1024,
 	})

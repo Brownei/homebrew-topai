@@ -1,9 +1,10 @@
-package providers
+package ui
 
 import (
 	"fmt"
 	"strings"
 
+	"github.com/Brownei/aitop/process"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -126,7 +127,7 @@ type SelectionModel struct {
 	selected    *ProviderInfo
 	err         error
 	validated   bool
-	result      AIProvider
+	result      process.AIProvider
 	quitting    bool
 }
 
@@ -242,7 +243,7 @@ func (m SelectionModel) handleEnteringKeyKeys(msg tea.KeyMsg) (tea.Model, tea.Cm
 }
 
 type validationResult struct {
-	provider AIProvider
+	provider process.AIProvider
 	err      error
 }
 
@@ -368,7 +369,7 @@ func (m SelectionModel) renderSuccess() string {
 }
 
 // GetResult returns the selected provider (call after program exits with success)
-func (m SelectionModel) GetResult() AIProvider {
+func (m SelectionModel) GetResult() process.AIProvider {
 	return m.result
 }
 

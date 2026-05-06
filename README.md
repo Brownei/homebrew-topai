@@ -1,9 +1,8 @@
-# aitop
+# Topai
 
 AI-powered terminal process monitor built in Go with a beautiful TUI interface.
 
 ![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)
-![License](https://img.shields.io/badge/License-MIT-blue)
 
 ## Features
 
@@ -17,16 +16,16 @@ AI-powered terminal process monitor built in Go with a beautiful TUI interface.
 ## Installation
 
 ```bash
-go install github.com/Brownei/aitop@latest
+go install github.com/Brownei/topai@latest
 ```
 
 Or clone and build manually:
 
 ```bash
-git clone https://github.com/Brownei/aitop.git
-cd aitop
-go build -o aitop
-./aitop
+git clone https://github.com/Brownei/topai.git
+cd topai
+go build -o topai
+./topai
 ```
 
 ## Usage
@@ -34,7 +33,7 @@ go build -o aitop
 Simply run:
 
 ```bash
-aitop
+topai
 ```
 
 On first run, you'll be prompted to select an AI provider and enter your API key.
@@ -52,7 +51,7 @@ On first run, you'll be prompted to select an AI provider and enter your API key
 
 ## AI Providers
 
-aitop supports multiple AI providers for process analysis:
+topai supports multiple AI providers for process analysis:
 
 | Provider | Model | Best For |
 |----------|-------|----------|
@@ -62,7 +61,7 @@ aitop supports multiple AI providers for process analysis:
 
 ## Configuration
 
-Configuration is stored at `~/.config/aitop/config.json`:
+Configuration is stored at `~/.config/topai/config.json`:
 
 ```json
 {
@@ -74,7 +73,7 @@ Configuration is stored at `~/.config/aitop/config.json`:
 ## Architecture
 
 ```
-aitop/
+topai/
 ├── main.go                 # Entry point
 ├── providers/
 │   ├── provider.go         # Provider management & configuration
@@ -100,6 +99,3 @@ aitop/
 - [OpenAI SDK](https://github.com/sashabaranov/go-openai) - GPT-4 integration
 - [Google GenAI](https://google.golang.org/genai) - Gemini integration
 
-## License
-
-MIT License
