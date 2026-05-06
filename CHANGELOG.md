@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/Brownei/homebrew-topai/compare/v1.1.0...v1.1.1) (2026-05-06)
+
+
+### Bug Fixes
+
+* correct the binary path in brew formula ([fa33d6b](https://github.com/Brownei/homebrew-topai/commit/fa33d6b6b0ada564cc02496f2e91724bad22eafa))
+
 # [1.1.0](https://github.com/Brownei/homebrew-topai/compare/v1.0.0...v1.1.0) (2026-05-06)
 
 
