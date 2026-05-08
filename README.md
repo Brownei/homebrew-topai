@@ -1,8 +1,14 @@
 # Topai
 
+<p align="center">
+  <img src="https://res.cloudinary.com/brownson/image/upload/c_fill,g_auto,h_250,w_970/b_rgb:000000,e_gradient_fade,y_-0.50/c_scale,co_rgb:ffffff,fl_relative,l_text:montserrat_25_style_light_align_center:Shop%20Now,w_0.5,y_0.18/v1778244945/topai-logo_xh9bct.png" alt="Topai Logo" width="600">
+</p>
+
 AI-powered terminal process monitor built in Go with a beautiful TUI interface.
 
 ![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)  ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+> **⚠️ Development Status**: This project is still in development and some features may glitch out. I'd love for issues to be created to help improve it!
 
 ## Features
 
@@ -15,9 +21,20 @@ AI-powered terminal process monitor built in Go with a beautiful TUI interface.
 
 ## Installation
 
+### Homebrew (Recommended)
+
+```bash
+brew tap Brownei/tap
+brew install topai
+```
+
+### Go Install
+
 ```bash
 go install github.com/Brownei/topai@latest
 ```
+
+### Build from Source
 
 Or clone and build manually:
 
