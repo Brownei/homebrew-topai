@@ -1,7 +1,7 @@
 # Topai
 
 <p align="center">
-  <img src="https://res.cloudinary.com/brownson/image/upload/c_fill,g_auto,h_250,w_970/b_rgb:000000,e_gradient_fade,y_-0.50/c_scale,co_rgb:ffffff,fl_relative,l_text:montserrat_25_style_light_align_center:Shop%20Now,w_0.5,y_0.18/v1778244945/topai-logo_xh9bct.png" alt="Topai Logo" width="600">
+  <img src="https://res.cloudinary.com/brownson/image/upload/v1778244945/topai-logo_xh9bct.png" alt="Topai Logo" width="600">
 </p>
 
 AI-powered terminal process monitor built in Go with a beautiful TUI interface.
