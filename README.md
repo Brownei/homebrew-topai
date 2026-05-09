@@ -1,4 +1,4 @@
-# Topai
+> **⚠️ Development Status**: This project is still in development and some features may glitch out. I'd love for issues to be created to help improve it!
 
 <p align="center">
   <img src="https://res.cloudinary.com/brownson/image/upload/v1778244945/topai-logo_xh9bct.png" alt="Topai Logo" width="600">
@@ -7,8 +7,6 @@
 AI-powered terminal process monitor built in Go with a beautiful TUI interface.
 
 ![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)  ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-
-> **⚠️ Development Status**: This project is still in development and some features may glitch out. I'd love for issues to be created to help improve it!
 
 ## Features
 
